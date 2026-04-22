@@ -8,7 +8,6 @@ on:
   release:
     types: [published]
 
-jobs:
 permissions:
   contents: write
 
