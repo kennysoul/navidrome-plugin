@@ -17,6 +17,8 @@ jobs:
 
     env:
       GOTOOLCHAIN: local
+      GONOSUMCHECK: '*'
+      GOFLAGS: '-mod=mod'
 
     steps:
       - uses: actions/checkout@v4
@@ -39,9 +41,7 @@ jobs:
           tinygo version
 
       - name: Download Go dependencies
-        run: |
-          go mod tidy
-          go mod download
+        run: go mod download github.com/navidrome/navidrome@v0.57.0
 
       - name: Build WASM plugin
         run: |
