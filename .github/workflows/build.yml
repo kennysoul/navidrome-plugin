@@ -11,6 +11,9 @@ on:
 permissions:
   contents: write
 
+env:
+  RELEASE_ASSET_NAME: sumusic-xml-sidecar.ndp
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -37,6 +40,10 @@ jobs:
           go version
           tinygo version
 
+      - name: Enforce fixed release asset name
+        run: |
+          test "$RELEASE_ASSET_NAME" = "sumusic-xml-sidecar.ndp"
+
       - name: Download Go dependencies
         run: |
           go mod tidy
@@ -49,16 +56,16 @@ jobs:
       - name: Package plugin (.ndp)
         run: |
           cp ../manifest.json manifest.json 2>/dev/null || true
-          zip -j sumusic-xml-sidecar.ndp plugin.wasm manifest.json
+          zip -j "$RELEASE_ASSET_NAME" plugin.wasm manifest.json
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: sumusic-xml-sidecar
-          path: sumusic-xml-sidecar/sumusic-xml-sidecar.ndp
+          path: sumusic-xml-sidecar/${{ env.RELEASE_ASSET_NAME }}
 
       - name: Upload to release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
-          files: sumusic-xml-sidecar/sumusic-xml-sidecar.ndp
+          files: sumusic-xml-sidecar/${{ env.RELEASE_ASSET_NAME }}
