@@ -1,0 +1,11 @@
+# Binaries and build artifacts
+*.wasm
+*.ndp
+*.tar.gz
+*.zip
+
+# Go module cache
+vendor/
+
+# macOS
+.DS_Store

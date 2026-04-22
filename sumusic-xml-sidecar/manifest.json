@@ -1,0 +1,13 @@
+{
+  "name": "SuMusic XML Sidecar Metadata",
+  "author": "SuMusic",
+  "version": "0.1.0",
+  "description": "Read artist and album metadata from sidecar XML files first",
+  "website": "https://github.com/kennysoul/navidrome-plugin",
+  "permissions": {
+    "library": {
+      "reason": "Read artist/album sidecar xml files in library folders",
+      "filesystem": true
+    }
+  }
+}
