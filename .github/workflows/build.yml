@@ -35,7 +35,9 @@ jobs:
           tinygo version
 
       - name: Download Go dependencies
-        run: go mod download
+        run: |
+          go mod tidy
+          go mod download
 
       - name: Build WASM plugin
         run: |
