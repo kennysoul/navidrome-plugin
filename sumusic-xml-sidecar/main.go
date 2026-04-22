@@ -1,3 +1,5 @@
+//go:build wasip1
+
 package main
 
 import (
@@ -7,44 +9,68 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/navidrome/navidrome/plugins/pdk/go/metadata"
+	extism "github.com/extism/go-pdk"
 )
+
+// --- Navidrome PDK types (inlined from navidrome/plugins/pdk/go/metadata) ---
+
+const notImplementedCode int32 = -2
+
+type artistRequest struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	MBID string `json:"mbid,omitempty"`
+}
+
+type artistBiographyResponse struct {
+	Biography string `json:"biography"`
+}
+
+type albumRequest struct {
+	Name   string `json:"name"`
+	Artist string `json:"artist"`
+	MBID   string `json:"mbid,omitempty"`
+}
+
+type albumInfoResponse struct {
+	Name        string `json:"name"`
+	MBID        string `json:"mbid"`
+	Description string `json:"description"`
+	URL         string `json:"url"`
+}
+
+// --- XML sidecar types ---
 
 const (
 	artistSidecarName = ".sumusic.artist.xml"
 	albumSidecarName  = ".sumusic.album.xml"
 )
 
-type xmlSidecarPlugin struct{}
-
 type sidecarArtist struct {
 	XMLName   xml.Name `xml:"artist"`
-	Name      string   `xml:"name"`
 	Biography string   `xml:"biography"`
 }
 
 type sidecarAlbum struct {
 	XMLName     xml.Name `xml:"album"`
-	Name        string   `xml:"name"`
-	Artist      string   `xml:"artist"`
 	Description string   `xml:"description"`
 	URL         string   `xml:"url"`
 	MBID        string   `xml:"mbid"`
 }
 
-func init() {
-	metadata.Register(&xmlSidecarPlugin{})
-}
+// --- WASM exports (navidrome MetadataAgent capability) ---
 
-var (
-	_ metadata.ArtistBiographyProvider = (*xmlSidecarPlugin)(nil)
-	_ metadata.AlbumInfoProvider       = (*xmlSidecarPlugin)(nil)
-)
-
-func (p *xmlSidecarPlugin) GetArtistBiography(req metadata.ArtistRequest) (*metadata.ArtistBiographyResponse, error) {
+//go:wasmexport nd_get_artist_biography
+func ndGetArtistBiography() int32 {
+	var req artistRequest
+	if err := extism.InputJSON(&req); err != nil {
+		extism.SetError(err)
+		return -1
+	}
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
-		return nil, fmt.Errorf("artist name is required")
+		extism.SetError(fmt.Errorf("artist name is required"))
+		return -1
 	}
 	pattern := filepath.Join("/libraries", "*", sanitizeName(name), artistSidecarName)
 	matches, _ := filepath.Glob(pattern)
@@ -55,17 +81,30 @@ func (p *xmlSidecarPlugin) GetArtistBiography(req metadata.ArtistRequest) (*meta
 		}
 		bio := strings.TrimSpace(side.Biography)
 		if bio != "" {
-			return &metadata.ArtistBiographyResponse{Biography: bio}, nil
+			resp := artistBiographyResponse{Biography: bio}
+			if err := extism.OutputJSON(resp); err != nil {
+				extism.SetError(err)
+				return -1
+			}
+			return 0
 		}
 	}
-	return nil, fmt.Errorf("artist sidecar not found")
+	extism.SetError(fmt.Errorf("artist sidecar not found for: %s", name))
+	return -1
 }
 
-func (p *xmlSidecarPlugin) GetAlbumInfo(req metadata.AlbumRequest) (*metadata.AlbumInfoResponse, error) {
+//go:wasmexport nd_get_album_info
+func ndGetAlbumInfo() int32 {
+	var req albumRequest
+	if err := extism.InputJSON(&req); err != nil {
+		extism.SetError(err)
+		return -1
+	}
 	albumName := strings.TrimSpace(req.Name)
 	artistName := strings.TrimSpace(req.Artist)
 	if albumName == "" || artistName == "" {
-		return nil, fmt.Errorf("album name and artist are required")
+		extism.SetError(fmt.Errorf("album name and artist are required"))
+		return -1
 	}
 	pattern := filepath.Join("/libraries", "*", sanitizeName(artistName), sanitizeName(albumName), albumSidecarName)
 	matches, _ := filepath.Glob(pattern)
@@ -74,43 +113,38 @@ func (p *xmlSidecarPlugin) GetAlbumInfo(req metadata.AlbumRequest) (*metadata.Al
 		if err := readXMLFile(f, &side); err != nil {
 			continue
 		}
-		resp := &metadata.AlbumInfoResponse{
-			Name:        firstNonEmpty(strings.TrimSpace(side.Name), albumName),
+		resp := albumInfoResponse{
+			Name:        albumName,
 			MBID:        strings.TrimSpace(side.MBID),
 			Description: strings.TrimSpace(side.Description),
 			URL:         strings.TrimSpace(side.URL),
 		}
 		if resp.Description != "" || resp.URL != "" || resp.MBID != "" {
-			return resp, nil
+			if err := extism.OutputJSON(resp); err != nil {
+				extism.SetError(err)
+				return -1
+			}
+			return 0
 		}
 	}
-	return nil, fmt.Errorf("album sidecar not found")
+	extism.SetError(fmt.Errorf("album sidecar not found for: %s / %s", artistName, albumName))
+	return -1
 }
+
+// --- Helpers ---
 
 func readXMLFile(path string, out any) error {
 	buf, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}
-	if err := xml.Unmarshal(buf, out); err != nil {
-		return err
-	}
-	return nil
+	return xml.Unmarshal(buf, out)
 }
 
 func sanitizeName(v string) string {
-	v = strings.TrimSpace(v)
 	r := strings.NewReplacer("/", "_", "\\", "_", ":", "_", "*", "_", "?", "_", "\"", "_", "<", "_", ">", "_", "|", "_")
-	return r.Replace(v)
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if strings.TrimSpace(v) != "" {
-			return v
-		}
-	}
-	return ""
+	return r.Replace(strings.TrimSpace(v))
 }
 
 func main() {}
+

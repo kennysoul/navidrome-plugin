@@ -1,5 +1,5 @@
 module github.com/kennysoul/navidrome-plugin/sumusic-xml-sidecar
 
-go 1.24
+go 1.21
 
-require github.com/navidrome/navidrome v0.57.0
+require github.com/extism/go-pdk v1.1.3

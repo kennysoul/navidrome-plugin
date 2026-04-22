@@ -15,24 +15,18 @@ jobs:
       run:
         working-directory: sumusic-xml-sidecar
 
-    env:
-      GOTOOLCHAIN: local
-      GONOSUMCHECK: '*'
-      GOFLAGS: '-mod=mod'
-
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24.x'
-          cache: false
+          go-version: '1.22.x'
 
       - name: Install TinyGo
         run: |
-          wget -q https://github.com/tinygo-org/tinygo/releases/download/v0.36.0/tinygo0.36.0.linux-amd64.tar.gz
-          sudo tar -C /usr/local -xzf tinygo0.36.0.linux-amd64.tar.gz
+          wget -q https://github.com/tinygo-org/tinygo/releases/download/v0.35.0/tinygo0.35.0.linux-amd64.tar.gz
+          sudo tar -C /usr/local -xzf tinygo0.35.0.linux-amd64.tar.gz
           echo "/usr/local/tinygo/bin" >> $GITHUB_PATH
 
       - name: Verify toolchain
@@ -41,7 +35,7 @@ jobs:
           tinygo version
 
       - name: Download Go dependencies
-        run: go mod download github.com/navidrome/navidrome@v0.57.0
+        run: go mod download
 
       - name: Build WASM plugin
         run: |
